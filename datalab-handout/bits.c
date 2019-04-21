@@ -143,8 +143,9 @@ NOTES:
  *   Rating: 1
  */
 int bitXor(int x, int y) {
-  /* x xor y equal to (~x) & y plus x & (~y). */
-  return ((~x) & y) | (x & (~y));
+  /* x xor y equal to (~x) & y plus x & (~y). 
+    convert to NOT and AND with De Morgan's law.*/
+  return ~((~(~x&y))&(~(x&~y)));
 }
 /* 
  * tmin - return minimum two's complement integer 
@@ -165,10 +166,11 @@ int tmin(void) {
  *   Rating: 1
  */
 int isTmax(int x) {
-  /* Maximum number starts with 0, indicating positive, with n-1 trailing 1.
-     Get maximum number through left shift, then using xor to check given number. */
-  int max = ~(1 << 31);
-  return !((x & (~max)) | ((~x) & max));
+  /* If x is max(0x7fffffff), then x+1==0x80000000, ~(x+1)==x.
+    If x is -1, then ~(x+1)==x as well. Check it by adding an AND term of (!(!(x+1)), double ! to convert int to bool. */
+  int t = x + 1;
+  int m = ~t;
+  return (!(m^x))&(!(!(x+1)));
 }
 /* 
  * allOddBits - return 1 if all odd-numbered bits in word set to 1
@@ -179,7 +181,9 @@ int isTmax(int x) {
  *   Rating: 2
  */
 int allOddBits(int x) {
-  return 2;
+  int flag = (((((0xAA<<8)+0xAA)<<8)+0xAA)<<8)+0xAA;
+  int t = flag & x;
+  return !(t^flag);
 }
 /* 
  * negate - return -x 
@@ -189,7 +193,7 @@ int allOddBits(int x) {
  *   Rating: 2
  */
 int negate(int x) {
-  return 2;
+  return ~x+1;
 }
 //3
 /* 
@@ -202,7 +206,8 @@ int negate(int x) {
  *   Rating: 3
  */
 int isAsciiDigit(int x) {
-  return 2;
+  x = x&0xFF;
+  return (x>>2&0x01)|((x>>1&0x10)>>1)|(x&0x01)|(x>>1&0x01);
 }
 /* 
  * conditional - same as x ? y : z 
