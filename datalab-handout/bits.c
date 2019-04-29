@@ -132,7 +132,6 @@ NOTES:
  *      the correct answers.
  */
 
-
 #endif
 //1
 /* 
@@ -143,9 +142,9 @@ NOTES:
  *   Rating: 1
  */
 int bitXor(int x, int y) {
-  /* x xor y equal to (~x) & y plus x & (~y). 
+    /* x xor y equal to (~x) & y plus x & (~y). 
     convert to NOT and AND with De Morgan's law.*/
-  return ~((~(~x&y))&(~(x&~y)));
+    return ~((~(~x & y)) & (~(x & ~y)));
 }
 /* 
  * tmin - return minimum two's complement integer 
@@ -154,8 +153,8 @@ int bitXor(int x, int y) {
  *   Rating: 1
  */
 int tmin(void) {
-  /* minimum number start with 1 with n-1 trailing 0. Here n is 32. */
-  return 1 << 31;
+    /* minimum number start with 1 with n-1 trailing 0. Here n is 32. */
+    return 1 << 31;
 }
 //2
 /*
@@ -166,11 +165,11 @@ int tmin(void) {
  *   Rating: 1
  */
 int isTmax(int x) {
-  /* If x is max(0x7fffffff), then x+1==0x80000000, ~(x+1)==x.
+    /* If x is max(0x7fffffff), then x+1==0x80000000, ~(x+1)==x.
     If x is -1, then ~(x+1)==x as well. Check it by adding an AND term of (!(!(x+1)), double ! to convert int to bool. */
-  int t = x + 1;
-  int m = ~t;
-  return (!(m^x))&(!(!(x+1)));
+    int t = x + 1;
+    int m = ~t;
+    return (!(m ^ x)) & (!(!(x + 1)));
 }
 /* 
  * allOddBits - return 1 if all odd-numbered bits in word set to 1
@@ -181,9 +180,9 @@ int isTmax(int x) {
  *   Rating: 2
  */
 int allOddBits(int x) {
-  int flag = (((((0xAA<<8)+0xAA)<<8)+0xAA)<<8)+0xAA;
-  int t = flag & x;
-  return !(t^flag);
+    int flag = (((((0xAA << 8) + 0xAA) << 8) + 0xAA) << 8) + 0xAA;
+    int t = flag & x;
+    return !(t ^ flag);
 }
 /* 
  * negate - return -x 
@@ -193,7 +192,7 @@ int allOddBits(int x) {
  *   Rating: 2
  */
 int negate(int x) {
-  return ~x+1;
+    return ~x + 1;
 }
 //3
 /* 
@@ -206,8 +205,14 @@ int negate(int x) {
  *   Rating: 3
  */
 int isAsciiDigit(int x) {
-  x = x&0xFF;
-  return (x>>2&0x01)|((x>>1&0x10)>>1)|(x&0x01)|(x>>1&0x01);
+    // check start with 0x3*
+    int a = !((x >> 4) ^ 0x3);
+    // check last 4 bits from 0 to 7
+    int y = x & 0x0F;  // clear high bits.
+    int b = !((y & 0x0F) >> 3);
+    // check last 4 bits from 8 to 9
+    int c = (!(y ^ 0x08)) | (!(y ^ 0x09));
+    return a & (b | c);
 }
 /* 
  * conditional - same as x ? y : z 
@@ -217,7 +222,13 @@ int isAsciiDigit(int x) {
  *   Rating: 3
  */
 int conditional(int x, int y, int z) {
-  return 2;
+    /* If x is not zero, then c is 0x1, so cz will be 0xffffffff and (cz & z) ^ z == 0
+     cy will be 0 and (cy & y) ^ y == y.
+     If x is zero, vice versa. */
+    int c = !(!x);
+    int cz = ~c + 1;
+    int cy = ~cz;
+    return ((cy & y) ^ y) | ((cz & z) ^ z);
 }
 /* 
  * isLessOrEqual - if x <= y  then return 1, else return 0 
@@ -227,7 +238,16 @@ int conditional(int x, int y, int z) {
  *   Rating: 3
  */
 int isLessOrEqual(int x, int y) {
-  return 2;
+    int r = x + (~y + 1);  // x-y should be smaller than 0.
+    int mask = 0x1 << 31;
+    int rm = !((r & mask) ^ mask) | (!r);  // x-y<=0
+    // Overflow.
+    int xn = !((x & mask) ^ mask);     // x < 0
+    int yp = !(!((y & mask) ^ mask));  // y >= 0
+    int xp = !xn;                      // x>=0
+    int yn = !yp;                      // y<0
+
+    return (!(xp & yn)) & ((xn & yp) | rm);
 }
 //4
 /* 
@@ -239,7 +259,8 @@ int isLessOrEqual(int x, int y) {
  *   Rating: 4 
  */
 int logicalNeg(int x) {
-  return 2;
+    // 0's 2's complement is 0. Other than 0, x's 2's complement is -x. So the most significant bits of the tow will add up to 1.
+    return ~((x | (~x + 1)) >> 31) & 1;
 }
 /* howManyBits - return the minimum number of bits required to represent x in
  *             two's complement
@@ -254,7 +275,31 @@ int logicalNeg(int x) {
  *  Rating: 4
  */
 int howManyBits(int x) {
-  return 0;
+    // The most significant bit can represent both sign and value for negative number in order to save space.
+    // for example, 0x1=-1, 0x10=-2, 0x11=-3...
+    // while 0x0=0, 0x01=1, 0x010=2, 0x011=3...
+
+    // check 0.
+    int negative = (x >> 31) & 1;  // 0 or 1. 1 indicate negative.
+    // 0 and -1 need only one bits. Other integer need at least 2 bits.
+    int isZero = !(x ^ (~x + 1)) & (!negative);
+    int isMinusOne = !(0 ^ (~x));
+    //  int maskn = ~negative + 1;  // 0x00000000 or 0xffffffff.
+    // Turn negative to positive.
+    //  int xp = (maskn & (~x + 1)) | ((~maskn) & x); // Not working for 0x80000000
+    int xp = x ^ (x >> 31);  // xp = |x| - 1 for negative and xp = x for non-negative.
+    // The result is at most 32. Check half bits each operation.
+    int check16 = !!(xp >> 16) << 4;  // 0 or 16.
+    // A dlc compile error when change xp variable?
+    //  xp = xp >> check16;
+    int check8 = !!(xp >> check16 >> 8) << 3;                           // 0 or 8.
+    int check4 = !!(xp >> check16 >> check8 >> 4) << 2;                 // 0 or 4.
+    int check2 = !!(xp >> check16 >> check8 >> check4 >> 2) << 1;       // 0 or 2.
+    int check1 = !!(xp >> check16 >> check8 >> check4 >> check2 >> 1);  // 0 or 1.
+    int b = check16 + check8 + check4 + check2 + check1 + 2;            // at least 2 bits needed except for 0 and -1.
+    int maskz = ~(~isZero + 1);                                         // 0x00000000 for zero and 0xffffffff for non-zero.
+    int maskmo = ~(~isMinusOne + 1);                                    // 0x00000000 for -1 and 0xffffffff for others.
+    return isMinusOne | isZero | (b & (maskz & maskmo));                // 1 extra bits to represent sign and
 }
 //float
 /* 
@@ -269,7 +314,7 @@ int howManyBits(int x) {
  *   Rating: 4
  */
 unsigned floatScale2(unsigned uf) {
-  return 2;
+    return 2;
 }
 /* 
  * floatFloat2Int - Return bit-level equivalent of expression (int) f
@@ -284,7 +329,7 @@ unsigned floatScale2(unsigned uf) {
  *   Rating: 4
  */
 int floatFloat2Int(unsigned uf) {
-  return 2;
+    return 2;
 }
 /* 
  * floatPower2 - Return bit-level equivalent of the expression 2.0^x
