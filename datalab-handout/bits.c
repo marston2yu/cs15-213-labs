@@ -314,7 +314,26 @@ int howManyBits(int x) {
  *   Rating: 4
  */
 unsigned floatScale2(unsigned uf) {
-    return 2;
+    // Extract segment.
+    int expSeg = (uf & (0xff << 23)) >> 23;
+    int fracSeg = (uf & ((0x7f << 16) + (0xff << 8) + 0xff));
+    int signSeg = (uf >> 31) & 1;
+
+    unsigned result;
+    // Scale 2 intuitively.
+    if (expSeg == 0) {
+        // denormalized.
+        result = (fracSeg << 1) | (signSeg << 31);
+    } else if (expSeg == (0xff)) {
+        // inf or nan
+        result = uf;
+    } else {
+        // normalized.
+        expSeg += 1;
+        result = (uf & (~(0xff << 23)));
+        result += expSeg << 23;
+    }
+    return result;
 }
 /* 
  * floatFloat2Int - Return bit-level equivalent of expression (int) f
@@ -329,7 +348,34 @@ unsigned floatScale2(unsigned uf) {
  *   Rating: 4
  */
 int floatFloat2Int(unsigned uf) {
-    return 2;
+    // Extract segment.
+    int expSeg = (uf & (0xff << 23)) >> 23;
+    int fracSeg = (uf & ((0x7f << 16) + (0xff << 8) + 0xff));
+    int signSeg = (uf >> 31) & 1;
+
+    // Scale 2 intuitively.
+    int special = 0x80 << 24;
+    int result = fracSeg | (1 << 23);  // fracSeg = 0 indicate 1, which equal to adding a 1 to the highest bit.
+    if (expSeg == 0) {
+        // denormalized.
+        return 0;
+    } else if (expSeg == (0xff)) {
+        // inf or nan
+        return special;
+    } else {
+        // normalized.
+        if (expSeg < 127) return 0;  // integer part is 0.
+        expSeg -= 127;
+        if (expSeg >= 32) return special;  // overflow
+        if (expSeg >= 22)
+            result <<= expSeg - 23;  // float with .0000... fraction part.
+        else
+            result >>= 23 - expSeg;  // float with non-zero fraction part.
+        if (signSeg)
+            result = ~result + 1;  // deal with sign bit.
+        return result;
+    }
+    return 0;
 }
 /* 
  * floatPower2 - Return bit-level equivalent of the expression 2.0^x
@@ -345,5 +391,9 @@ int floatFloat2Int(unsigned uf) {
  *   Rating: 4
  */
 unsigned floatPower2(int x) {
-    return 2;
+    // E = expSeg - 127, r = 2^E
+    int expSeg = x + 127; 
+    if (expSeg >= 0xff) return 0xff << 23;
+    if (x < -126) return 0;  // the smallest denorm number is 2^(1-127)
+    return expSeg << 23;
 }
